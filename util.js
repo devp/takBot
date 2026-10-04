@@ -759,6 +759,36 @@ module.exports = {
     }
   },
 
+  async endGameByForfeit(msg, gameData, losingPlayerId, reasonLine) {
+    const winningPlayerId =
+      losingPlayerId === gameData.player1Id
+        ? gameData.player2Id
+        : gameData.player1Id;
+    const result = losingPlayerId === gameData.player1Id ? "0-1" : "1-0";
+    module.exports.cleanupFiles(msg.channelId || msg.channel.id);
+    if (gameData.gameId) {
+      module.exports.addToHistoryFile({
+        gameId: gameData.gameId,
+        player1: gameData.player1,
+        player2: gameData.player2,
+        komi: gameData.komi,
+        opening: gameData.opening,
+        result: result,
+      });
+    }
+    const finalMessage = await module.exports.sendMessage(
+      msg,
+      (reasonLine ? reasonLine + "\n" : "") +
+        `GG <@${winningPlayerId}>! Game Ended ${result}\nHere's a link to the completed game:\nID: [${
+          gameData.gameId
+        }](${module.exports.getLink(gameData.gameId)})`
+    );
+    module.exports.clearInactiveTimer(msg);
+    module.exports.setDeleteTimer(msg);
+    await module.exports.pinMessage(finalMessage);
+    return module.exports.renameChannel(msg, false);
+  },
+
   async handleDelete(msg, playerId) {
     const channel = msg.channel;
     if (!channel) {
@@ -799,7 +829,16 @@ module.exports = {
   },
 
   async setTimer(timer, channelId) {
-    let { type, timestamp, playerId, interval, seed, index } = timer;
+    let {
+      type,
+      timestamp,
+      playerId,
+      interval,
+      seed,
+      index,
+      forfeitAfter,
+      missedCount,
+    } = timer;
     let channel;
     try {
       channel = await client.channels.fetch(channelId);
@@ -839,22 +878,49 @@ module.exports = {
             REMINDER_STARTUP_GRACE_MS +
             Math.floor(Math.random() * REMINDER_STARTUP_JITTER_MS);
         }
+        if (!missedCount) {
+          missedCount = 0;
+        }
         if (inactiveTimers[channelId]) {
           clearTimeout(inactiveTimers[channelId]);
         }
-        inactiveTimers[channelId] = setTimeout(() => {
+        inactiveTimers[channelId] = setTimeout(async () => {
+          if (forfeitAfter > 0 && missedCount >= forfeitAfter) {
+            // The idle player has already been sent forfeitAfter reminders
+            // and still hasn't moved; forfeit now instead of nagging again.
+            const gameData = module.exports.getGameData({ channel });
+            if (gameData) {
+              await module.exports.endGameByForfeit(
+                { channel },
+                gameData,
+                playerId,
+                `<@${playerId}> forfeits by timeout after ${forfeitAfter} missed reminder(s).`
+              );
+            }
+            return;
+          }
           module.exports.sendMessage(
             { channel },
             getInactiveMessage(playerId, seed, index),
             true
           );
+          missedCount++;
           if (!interval) {
             interval = DELETE_TIMER_MS;
           }
           timestamp = Math.round((new Date().getTime() + interval) / 1e3);
           index = (index + 1) % INACTIVE_MESSAGES.length;
           createTimer(
-            { type, timestamp, playerId, interval, seed, index },
+            {
+              type,
+              timestamp,
+              playerId,
+              interval,
+              seed,
+              index,
+              forfeitAfter,
+              missedCount,
+            },
             channelId
           );
         }, delay);
@@ -883,7 +949,11 @@ module.exports = {
       {
         type: "delete",
         timestamp,
-        playerId: msg.author ? msg.author.id : msg.member.id,
+        playerId: msg.author
+          ? msg.author.id
+          : msg.member
+          ? msg.member.id
+          : undefined,
       },
       msg.channelId || msg.channel.id
     );
@@ -899,6 +969,7 @@ module.exports = {
       // Reminders disabled
       return;
     }
+    const forfeitAfter = gameData.forfeitAfter || -1;
     const timestamp = Math.round((new Date().getTime() + interval) / 1e3);
     createTimer(
       {
@@ -906,6 +977,7 @@ module.exports = {
         timestamp,
         playerId: gameData[`player${canvas.player}Id`],
         interval,
+        forfeitAfter,
       },
       msg.channelId || msg.channel.id
     );
@@ -925,7 +997,11 @@ module.exports = {
       {
         type: "reminder",
         timestamp,
-        playerId: msg.author ? msg.author.id : msg.member.id,
+        playerId: msg.author
+          ? msg.author.id
+          : msg.member
+          ? msg.member.id
+          : undefined,
       },
       msg.channelId || msg.channel.id
     );
