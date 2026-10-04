@@ -10,6 +10,7 @@ Use `/tak @opponent` to start a new game. You can specify any of the following:
 - `caps`: Override the number of cap stones per player
 - `flats`: Override the number of flat stones per player
 - `inactive-interval` Specifies the time interval between inactivity reminders
+- `forfeit-after` _(default `disabled`):_ Auto-forfeits a player who ignores this many inactivity reminders in a row
 - `theme` _(default `discord`):_ Uses the specified theme
 - `flat-counts` _(default `true`)_: Show flat counts
 - `stack-counts` _(default `true`)_: Show stack counts

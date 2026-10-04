@@ -134,6 +134,20 @@ module.exports = {
           { name: "Disabled", value: -1 }
         )
     )
+    .addIntegerOption((option) =>
+      option
+        .setName("forfeit-after")
+        .setDescription(
+          "Auto-forfeit for a player who ignores this many inactivity reminders"
+        )
+        .addChoices(
+          { name: "1", value: 1 },
+          { name: "2", value: 2 },
+          { name: "3", value: 3 },
+          { name: "5", value: 5 },
+          { name: "Disabled (default)", value: -1 }
+        )
+    )
     .addStringOption((option) =>
       option
         .setName("theme")
@@ -237,6 +251,9 @@ module.exports = {
       // Inactivity Reminder Interval
       const inactiveInterval = options.getInteger("inactive-interval") || 864e5;
 
+      // Auto-forfeit after this many missed inactivity reminders
+      const forfeitAfter = options.getInteger("forfeit-after") || -1;
+
       // Theme
       let theme = options.getString("theme");
       if (theme) {
@@ -266,6 +283,7 @@ module.exports = {
         komi,
         opening,
         inactiveInterval,
+        forfeitAfter,
       };
       if (tpsParsed) {
         gameData.initialTPS = tps;
