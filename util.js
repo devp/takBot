@@ -45,6 +45,10 @@ const reminderTimers = {};
 
 // Non-exported functions
 
+function getDataRoot() {
+  return process.env.TAKBOT_DATA_DIR || __dirname;
+}
+
 function tagDateTime() {
   const pad = (num) => {
     return (num < 9 ? "0" : "") + num;
@@ -62,7 +66,7 @@ function tagDateTime() {
 
 function getLastFilename(msg) {
   let tpsDir = path.join(
-    __dirname,
+    getDataRoot(),
     "data",
     msg.channelId || msg.channel.id,
     "tps"
@@ -80,7 +84,7 @@ function getLastFilename(msg) {
 function createTimer(timer, channelId) {
   const { type, timestamp } = timer;
   try {
-    const timersDir = path.join(__dirname, "data", channelId, "timers");
+    const timersDir = path.join(getDataRoot(), "data", channelId, "timers");
     const timerPath = path.join(
       timersDir,
       type === "reminder" ? `${type}.${timestamp}.json` : `${type}.json`
@@ -94,7 +98,7 @@ function createTimer(timer, channelId) {
 }
 
 function clearTimer(type, channelId, timestamp) {
-  const timerDir = path.join(__dirname, "data", channelId, "timers");
+  const timerDir = path.join(getDataRoot(), "data", channelId, "timers");
   let timerId;
   let filePath;
   switch (type) {
@@ -179,6 +183,10 @@ Ply.prototype.toString = function () {
 // Exported functions
 
 module.exports = {
+  getDataRoot,
+  shuffle,
+  seedRandom,
+
   createClient() {
     client = new Discord.Client({
       intents: [
@@ -314,7 +322,7 @@ module.exports = {
 
   getPlies(gameId) {
     let ptn;
-    let filePath = path.join(__dirname, "ptn", `${gameId}.ptn`);
+    let filePath = path.join(getDataRoot(), "ptn", `${gameId}.ptn`);
     try {
       ptn = fs.readFileSync(filePath, "utf8");
     } catch (err) {
@@ -337,7 +345,7 @@ module.exports = {
 
   getGameData(msg) {
     const channelDir = path.join(
-      __dirname,
+      getDataRoot(),
       "data",
       msg.channelId || msg.channel.id
     );
@@ -367,7 +375,7 @@ module.exports = {
 
   saveGameData(msg, { gameData, tps, ply }) {
     const channelDir = path.join(
-      __dirname,
+      getDataRoot(),
       "data",
       msg.channelId || msg.channel.id
     );
@@ -405,7 +413,7 @@ module.exports = {
 
   clearDrawOffer(msg) {
     const metaPath = path.join(
-      __dirname,
+      getDataRoot(),
       "data",
       msg.channelId || msg.channel.id,
       "meta",
@@ -456,7 +464,7 @@ module.exports = {
 
   getTheme(msg) {
     const metaDir = path.join(
-      __dirname,
+      getDataRoot(),
       "data",
       msg.channelId || msg.channel.id,
       "meta"
@@ -475,7 +483,7 @@ module.exports = {
 
   setTheme(msg, theme) {
     const metaDir = path.join(
-      __dirname,
+      getDataRoot(),
       "data",
       msg.channelId || msg.channel.id,
       "meta"
@@ -562,7 +570,11 @@ module.exports = {
     try {
       fs.unlinkSync(getLastFilename(msg));
       if (gameData.gameId) {
-        let filePath = path.join(__dirname, "ptn", `${gameData.gameId}.ptn`);
+        let filePath = path.join(
+          getDataRoot(),
+          "ptn",
+          `${gameData.gameId}.ptn`
+        );
         let data = fs.readFileSync(filePath, "utf8");
         data = data.replace(/\s+$/, "");
         while (data.endsWith("}")) {
@@ -594,7 +606,7 @@ module.exports = {
   isGameChannel(msg) {
     return fs.existsSync(
       path.join(
-        __dirname,
+        getDataRoot(),
         "data",
         msg.channelId || msg.channel.id,
         "meta",
@@ -605,12 +617,12 @@ module.exports = {
 
   isGameOngoing(msg) {
     return fs.existsSync(
-      path.join(__dirname, "data", msg.channelId || msg.channel.id, "tps")
+      path.join(getDataRoot(), "data", msg.channelId || msg.channel.id, "tps")
     );
   },
 
   cleanupFiles(channelId, channelDeleted = false) {
-    const channelDir = path.join(__dirname, "data", channelId);
+    const channelDir = path.join(getDataRoot(), "data", channelId);
     try {
       if (channelDeleted) {
         fs.rmSync(channelDir, { recursive: true, force: true });
@@ -642,7 +654,7 @@ module.exports = {
   },
 
   createPtnFile(gameData) {
-    const ptnDir = path.join(__dirname, "ptn");
+    const ptnDir = path.join(getDataRoot(), "ptn");
     try {
       fs.mkdirSync(ptnDir, { recursive: true });
     } catch (err) {
@@ -685,7 +697,9 @@ module.exports = {
       return false;
     }
     try {
-      fs.unlinkSync(path.join(__dirname, "ptn", `${gameData.gameId}.ptn`));
+      fs.unlinkSync(
+        path.join(getDataRoot(), "ptn", `${gameData.gameId}.ptn`)
+      );
     } catch (err) {
       console.error(err);
     }
@@ -693,7 +707,7 @@ module.exports = {
   },
 
   addPlyToPtnFile(gameId, ply, comments = []) {
-    const filePath = path.join(__dirname, "ptn", `${gameId}.ptn`);
+    const filePath = path.join(getDataRoot(), "ptn", `${gameId}.ptn`);
     try {
       let data = fs.readFileSync(filePath, "utf8");
       data += " " + ply;
@@ -707,8 +721,8 @@ module.exports = {
   },
 
   addToHistoryFile({ gameId, player1, player2, komi, opening, result }) {
-    let historyFilename = path.join(__dirname, "results.db");
-    let ptnFilename = path.join(__dirname, "ptn", `${gameId}.ptn`);
+    let historyFilename = path.join(getDataRoot(), "results.db");
+    let ptnFilename = path.join(getDataRoot(), "ptn", `${gameId}.ptn`);
     let resultString = `${gameId}, ${player1}, ${player2}, ${komi}, ${opening}, ${result}\n`;
     try {
       fs.appendFileSync(historyFilename, resultString);
@@ -733,7 +747,7 @@ module.exports = {
       if (isNaN(page) || page < 1) {
         return;
       }
-      let filename = path.join(__dirname, "results.db");
+      let filename = path.join(getDataRoot(), "results.db");
       let gamesPerPage = 10;
       let history = fs.readFileSync(filename, "utf8");
       let historyArray = history.split("\n");

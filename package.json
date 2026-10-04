@@ -6,6 +6,8 @@
   },
   "scripts": {
     "bot": "node bot",
-    "deploy": "node deploy-commands"
+    "deploy": "node deploy-commands",
+    "cli": "node cli.js",
+    "test": "node --test test/*.test.js"
   }
 }
